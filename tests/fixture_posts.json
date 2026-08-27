@@ -1,0 +1,99 @@
+{
+  "data": [
+    {
+      "id": "98765432",
+      "type": "post",
+      "attributes": {
+        "title": "Ep 300: A Public Episode",
+        "content": "<p>Gary and John talk about a war.</p>",
+        "teaser_text": "Gary and John talk about a war.",
+        "current_user_can_view": true,
+        "is_paid": false,
+        "post_type": "audio_file",
+        "published_at": "2026-08-20T15:04:05.000+00:00",
+        "url": "/posts/ep-300-98765432",
+        "post_file": {
+          "name": "ep300.mp3",
+          "url": "https://stream.patreonusercontent.com/audio/98765432/ep300.mp3?token=abc",
+          "mimetype": "audio/mpeg",
+          "size_bytes": 51200000,
+          "duration": 4230
+        },
+        "image": {
+          "large_url": "https://c10.patreonusercontent.com/4/patreon-media/p/post/98765432/large.jpg",
+          "thumb_url": "https://c10.patreonusercontent.com/4/patreon-media/p/post/98765432/thumb.jpg"
+        }
+      },
+      "relationships": {
+        "audio": {"data": {"id": "111", "type": "media"}}
+      }
+    },
+    {
+      "id": "98765400",
+      "type": "post",
+      "attributes": {
+        "title": "Ep 299: Patrons Only",
+        "content": "<p>Locked.</p>",
+        "current_user_can_view": false,
+        "is_paid": true,
+        "post_type": "audio_file",
+        "published_at": "2026-08-13T15:00:00.000+00:00",
+        "url": "/posts/ep-299-98765400"
+      },
+      "relationships": {}
+    },
+    {
+      "id": "98765111",
+      "type": "post",
+      "attributes": {
+        "title": "A Text Announcement",
+        "content": "<p>No audio here.</p>",
+        "current_user_can_view": true,
+        "post_type": "text_only",
+        "published_at": "2026-08-10T09:00:00.000+00:00",
+        "url": "/posts/announcement-98765111"
+      },
+      "relationships": {}
+    },
+    {
+      "id": "98764000",
+      "type": "post",
+      "attributes": {
+        "title": "Ep 298: Unlocked via Media Relationship",
+        "content": "<p>Older unlocked episode.</p>",
+        "current_user_can_view": true,
+        "post_type": "audio_embed",
+        "published_at": "2026-08-06T12:00:00.000+00:00",
+        "url": "https://www.patreon.com/posts/ep-298-98764000",
+        "thumbnail": {"large2x": "https://c10.patreonusercontent.com/4/p/98764000/large2x.jpg"}
+      },
+      "relationships": {
+        "media": {"data": [{"id": "222", "type": "media"}]}
+      }
+    }
+  ],
+  "included": [
+    {
+      "id": "111",
+      "type": "media",
+      "attributes": {
+        "file_name": "ep300.mp3",
+        "mimetype": "audio/mpeg",
+        "size_bytes": 51200000,
+        "download_url": "https://stream.patreonusercontent.com/audio/98765432/ep300.mp3?token=abc"
+      }
+    },
+    {
+      "id": "222",
+      "type": "media",
+      "attributes": {
+        "file_name": "ep298.m4a",
+        "mimetype": "audio/mp4",
+        "size_bytes": 44000000,
+        "download_url": "https://stream.patreonusercontent.com/audio/98764000/ep298.m4a?token=xyz",
+        "metadata": {"duration": 3600}
+      }
+    }
+  ],
+  "meta": {"pagination": {"cursors": {"next": null}}}
+}

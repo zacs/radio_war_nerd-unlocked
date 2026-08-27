@@ -1,0 +1,14 @@
+services:
+  rwnfeed:
+    build: .
+    image: rwnfeed:latest
+    container_name: rwnfeed
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Scratch space for in-flight downloads. Safe to lose: the manifest of
+      # published episodes lives in the bucket, not here.
+      - rwnfeed-data:/data
+
+volumes:
+  rwnfeed-data:
