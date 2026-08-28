@@ -28,10 +28,32 @@ docker compose build
 # See what the first run would pick up, without downloading or uploading:
 docker compose run --rm rwnfeed --once --dry-run
 
+# Do it for real, right now, then exit:
+docker compose run --rm rwnfeed --once
+
 # Start the scheduler (runs on CRON_SCHEDULE, restarts with the daemon):
 docker compose up -d
 docker compose logs -f
 ```
+
+`--once` is a full, real run: it downloads, uploads and rewrites the feed. Only
+`--dry-run` makes it a preview. If you have set `DRY_RUN=true` in `.env`, add
+`--no-dry-run` to force a real run without editing the file:
+
+```bash
+docker compose run --rm rwnfeed --once --no-dry-run
+```
+
+Either way the first log line states which mode you are in:
+
+```
+INFO rwnfeed: mode: live - episodes will be downloaded and uploaded
+```
+
+Running one of these while the scheduler is up is safe — `docker compose run`
+starts a separate one-off container, and an episode already in `state.json` is
+never fetched twice. To re-download everything from scratch, delete
+`state.json` from the bucket.
 
 The first run backfills the whole unlocked archive, so it takes a while and
 moves a lot of bytes. To ease into it, set `MAX_NEW_EPISODES_PER_RUN=10` for the
@@ -62,7 +84,7 @@ Useful optional ones:
 | `EXCLUDE_TITLE_PATTERN` | drops `FREE PREVIEW` | Case-insensitive regex of post titles to skip; empty means mirror everything |
 | `FEED_MAX_ITEMS` | `0` (all) | Keep only the N newest items in the feed |
 | `R2_PREFIX` | *(none)* | Store everything under a folder inside the bucket |
-| `DRY_RUN` | `false` | Report what would happen, change nothing |
+| `DRY_RUN` | `false` | Report what would happen, change nothing (`--no-dry-run` overrides it) |
 
 Feed metadata (`FEED_TITLE`, `FEED_AUTHOR`, `FEED_OWNER_EMAIL`,
 `FEED_CATEGORIES`, `FEED_IMAGE_URL`, …) is configurable the same way. Set a real

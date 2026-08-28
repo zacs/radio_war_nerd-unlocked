@@ -48,8 +48,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--dry-run",
-        action="store_true",
-        help="list what would be mirrored without downloading or uploading",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="list what would be mirrored without downloading or uploading; "
+        "--no-dry-run forces a real run even when DRY_RUN=true is set",
     )
     parser.add_argument(
         "--schedule",
@@ -57,6 +59,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--log-level", help="DEBUG, INFO, WARNING, ERROR")
     return parser.parse_args(argv)
+
+
+def apply_overrides(config: AppConfig, args: argparse.Namespace) -> AppConfig:
+    """Command-line flags win over the environment.
+
+    ``args.dry_run`` is tri-state: ``None`` means the flag was not given, so
+    DRY_RUN from the environment stands. ``True`` and ``False`` both override it,
+    which is what makes ``--no-dry-run`` able to force a real run.
+    """
+    overrides: dict = {}
+    if args.dry_run is not None:
+        overrides["dry_run"] = args.dry_run
+    if args.schedule:
+        overrides["schedule"] = args.schedule
+    if args.log_level:
+        overrides["log_level"] = args.log_level.upper()
+    return replace(config, **overrides) if overrides else config
 
 
 def _sleep_until(target: datetime) -> None:
@@ -78,19 +97,18 @@ def main(argv: list[str] | None = None) -> int:
         log.error("configuration error: %s", exc)
         return 2
 
-    overrides = {}
-    if args.dry_run:
-        overrides["dry_run"] = True
-    if args.schedule:
-        overrides["schedule"] = args.schedule
-    if args.log_level:
-        overrides["log_level"] = args.log_level.upper()
-    if overrides:
-        config = replace(config, **overrides)
+    config = apply_overrides(config, args)
 
     configure_logging(config.log_level)
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
+
+    log.info(
+        "mode: %s",
+        "DRY RUN - nothing will be downloaded or uploaded"
+        if config.dry_run
+        else "live - episodes will be downloaded and uploaded",
+    )
 
     single = args.once or config.run_once
     if single:

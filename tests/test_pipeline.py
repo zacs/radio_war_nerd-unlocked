@@ -11,7 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from rwnfeed.config import FeedConfig  # noqa: E402
+from rwnfeed.__main__ import apply_overrides, parse_args  # noqa: E402
+from rwnfeed.config import AppConfig, FeedConfig  # noqa: E402
 from rwnfeed.feed import ITUNES_NS, build_feed, format_duration  # noqa: E402
 from rwnfeed.media import guess_extension  # noqa: E402
 from rwnfeed.config import PatreonConfig  # noqa: E402
@@ -169,6 +170,50 @@ class TestTitleExclusion(unittest.TestCase):
     def test_invalid_pattern_is_reported_clearly(self):
         with self.assertRaises(PatreonError):
             _compile_exclude("([unclosed")
+
+
+class TestDryRunPrecedence(unittest.TestCase):
+    """--no-dry-run must be able to force a real run over DRY_RUN=true."""
+
+    def _config(self, dry_run: bool) -> AppConfig:
+        env = {
+            "R2_ACCOUNT_ID": "a",
+            "R2_ACCESS_KEY_ID": "b",
+            "R2_SECRET_ACCESS_KEY": "c",
+            "R2_BUCKET": "d",
+            "PUBLIC_BASE_URL": "https://cdn.example.com",
+            "DRY_RUN": "true" if dry_run else "false",
+        }
+        previous = {k: os.environ.get(k) for k in env}
+        os.environ.update(env)
+        try:
+            return AppConfig.from_env()
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    def test_no_flag_keeps_the_environment_setting(self):
+        for env_value in (True, False):
+            with self.subTest(env=env_value):
+                config = apply_overrides(self._config(env_value), parse_args([]))
+                self.assertIs(config.dry_run, env_value)
+
+    def test_no_dry_run_forces_a_real_run(self):
+        config = apply_overrides(self._config(True), parse_args(["--once", "--no-dry-run"]))
+        self.assertFalse(config.dry_run)
+
+    def test_dry_run_flag_wins_over_a_false_environment(self):
+        config = apply_overrides(self._config(False), parse_args(["--once", "--dry-run"]))
+        self.assertTrue(config.dry_run)
+
+    def test_other_overrides_still_apply(self):
+        args = parse_args(["--schedule", "0 * * * *", "--log-level", "debug"])
+        config = apply_overrides(self._config(False), args)
+        self.assertEqual(config.schedule, "0 * * * *")
+        self.assertEqual(config.log_level, "DEBUG")
 
 
 class TestMediaHelpers(unittest.TestCase):
