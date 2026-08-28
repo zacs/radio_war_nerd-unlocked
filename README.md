@@ -59,6 +59,7 @@ Useful optional ones:
 | `CRON_SCHEDULE` | `17 */6 * * *` | Standard 5-field cron expression, evaluated in **UTC** |
 | `RUN_ONCE` | `false` | Run a single pass and exit, for an external scheduler |
 | `MAX_NEW_EPISODES_PER_RUN` | `0` (unlimited) | Throttle a large backfill |
+| `EXCLUDE_TITLE_PATTERN` | drops `FREE PREVIEW` | Case-insensitive regex of post titles to skip; empty means mirror everything |
 | `FEED_MAX_ITEMS` | `0` (all) | Keep only the N newest items in the feed |
 | `R2_PREFIX` | *(none)* | Store everything under a folder inside the bucket |
 | `DRY_RUN` | `false` | Report what would happen, change nothing |
@@ -66,6 +67,30 @@ Useful optional ones:
 Feed metadata (`FEED_TITLE`, `FEED_AUTHOR`, `FEED_OWNER_EMAIL`,
 `FEED_CATEGORIES`, `FEED_IMAGE_URL`, …) is configurable the same way. Set a real
 `FEED_OWNER_EMAIL` if you plan to submit the feed to a directory.
+
+## What counts as an episode
+
+The campaign posts two different things publicly:
+
+- **Full episodes**, variously titled `[UNLOCKED]`, `REPOST: … [UNLOCKED]`,
+  `UNLOCKED: … [REPOST]`, or with no marker at all.
+- **`FREE PREVIEW` teasers** — a few minutes of an episode that is otherwise
+  behind the paywall.
+
+Only the first kind belongs in a podcast feed, so `EXCLUDE_TITLE_PATTERN`
+drops the teasers by default. The pattern is deliberately narrow: it matches
+`free preview`, not `free`, because `FREE REPOST … [UNLOCKED]` is a full
+episode and has to survive the filter.
+
+Skipped titles are logged, so it is always visible from the logs why a post
+isn't in the feed:
+
+```
+INFO rwnfeed.patreon: skipping excluded title: FREE PREVIEW: Radio War Nerd #187 — …
+INFO rwnfeed.patreon: found 45 unlocked audio posts (skipped 443 locked, 4 without audio, 8 excluded by title)
+```
+
+To mirror everything instead, set `EXCLUDE_TITLE_PATTERN=` (empty).
 
 ## Cloudflare R2 setup
 

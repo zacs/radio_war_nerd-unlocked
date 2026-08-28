@@ -24,6 +24,14 @@ def _required(name: str) -> str:
     return value
 
 
+def _pattern(name: str, default: str) -> str:
+    """Like _env, but an explicitly empty value disables the pattern."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip()
+
+
 def _bool(name: str, default: bool) -> bool:
     value = _env(name)
     if value is None:
@@ -136,6 +144,12 @@ class FeedConfig:
         )
 
 
+# Teaser clips, not episodes: the campaign posts a short "FREE PREVIEW" of an
+# otherwise paywalled episode. Deliberately narrow -- a title like
+# "FREE REPOST ... [UNLOCKED]" is a full episode and must survive this.
+DEFAULT_EXCLUDE_TITLE_PATTERN = r"\bfree\s+preview\b|^\s*preview\b"
+
+
 @dataclass(frozen=True)
 class PatreonConfig:
     """How to reach Patreon's public JSON API. No login, no cookies."""
@@ -147,8 +161,7 @@ class PatreonConfig:
     page_size: int
     request_timeout: int
     max_retries: int
-    include_locked: bool = False
-
+    exclude_title_pattern: str
 
     @classmethod
     def from_env(cls) -> "PatreonConfig":
@@ -164,6 +177,9 @@ class PatreonConfig:
             page_size=_int("PATREON_PAGE_SIZE", 20),
             request_timeout=_int("HTTP_TIMEOUT_SECONDS", 60),
             max_retries=_int("HTTP_MAX_RETRIES", 4),
+            exclude_title_pattern=_pattern(
+                "EXCLUDE_TITLE_PATTERN", DEFAULT_EXCLUDE_TITLE_PATTERN
+            ),
         )
 
 

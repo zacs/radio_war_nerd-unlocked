@@ -43,6 +43,16 @@ class PatreonError(RuntimeError):
     pass
 
 
+def _compile_exclude(pattern: str) -> re.Pattern | None:
+    """Compile the title exclusion pattern; an empty pattern disables it."""
+    if not pattern:
+        return None
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error as exc:
+        raise PatreonError(f"invalid EXCLUDE_TITLE_PATTERN {pattern!r}: {exc}") from exc
+
+
 @dataclass
 class Episode:
     """One unlocked audio post, normalised out of the JSON:API soup."""
@@ -102,6 +112,7 @@ class PatreonClient:
                 "Accept-Language": "en-US,en;q=0.9",
             }
         )
+        self.exclude_title = _compile_exclude(config.exclude_title_pattern)
 
     # ---------------------------------------------------------------- HTTP --
 
@@ -213,6 +224,7 @@ class PatreonClient:
         seen_ids: set[str] = set()
         skipped_locked = 0
         skipped_no_audio = 0
+        skipped_excluded = 0
         for post, included in self.iter_posts(campaign_id):
             post_id = str(post.get("id") or "")
             if not post_id or post_id in seen_ids:
@@ -222,16 +234,23 @@ class PatreonClient:
             if not attributes.get("current_user_can_view", False):
                 skipped_locked += 1
                 continue
+            title = (attributes.get("title") or "").strip()
+            if self.exclude_title is not None and self.exclude_title.search(title):
+                log.info("skipping excluded title: %s", title)
+                skipped_excluded += 1
+                continue
             episode = build_episode(post, included)
             if episode is None:
                 skipped_no_audio += 1
                 continue
             episodes.append(episode)
         log.info(
-            "found %d unlocked audio posts (skipped %d locked, %d without audio)",
+            "found %d unlocked audio posts "
+            "(skipped %d locked, %d without audio, %d excluded by title)",
             len(episodes),
             skipped_locked,
             skipped_no_audio,
+            skipped_excluded,
         )
         episodes.sort(key=lambda e: e.published_at, reverse=True)
         return episodes

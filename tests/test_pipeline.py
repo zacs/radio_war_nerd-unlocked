@@ -15,7 +15,12 @@ from rwnfeed.config import FeedConfig  # noqa: E402
 from rwnfeed.feed import ITUNES_NS, build_feed, format_duration  # noqa: E402
 from rwnfeed.media import guess_extension  # noqa: E402
 from rwnfeed.config import PatreonConfig  # noqa: E402
-from rwnfeed.patreon import PatreonClient, build_episode  # noqa: E402
+from rwnfeed.patreon import (  # noqa: E402
+    PatreonClient,
+    PatreonError,
+    _compile_exclude,
+    build_episode,
+)
 from rwnfeed.state import State, StoredEpisode  # noqa: E402
 
 FIXTURE = json.loads((Path(__file__).parent / "fixture_posts.json").read_text())
@@ -95,6 +100,75 @@ class TestOverlappingPages(unittest.TestCase):
 
         episodes = FakeClient(PatreonConfig.from_env()).fetch_unlocked_episodes("1")
         self.assertEqual([e.post_id for e in episodes], ["98765432", "98764000"])
+
+
+class TestTitleExclusion(unittest.TestCase):
+    """Titles taken verbatim from a real run against the campaign."""
+
+    DROPPED = [
+        "FREE PREVIEW: Radio War Nerd #187 \u2014 Climate Change & Wars, with Christian Parenti",
+        "FREE PREVIEW: Radio War Nerd #238 \u2014 Vigilante Mobs & Antifa Freakout",
+        "FREE PREVIEW: Radio War Nerd #296 \u2014 The Spoils of War, with Andrew Cockburn",
+        "Preview: something",
+        "free preview: lowercase variant",
+    ]
+    KEPT = [
+        # The trap: starts with FREE, but it is a full episode.
+        "FREE REPOST Radio War Nerd EP #628 [UNLOCKED] \u2014 The Israel Lobby",
+        "REPOST: Radio War Nerd #375 [UNLOCKED] \u2014 Sudan Crisis, feat. Joshua Craze",
+        "Radio War Nerd EP #366 \u2014 Seymour Hersh on US Bombing Nord Stream Pipelines",
+        "UNLOCKED: Radio War Nerd EP #384 [REPOST] \u2014 Prigozhin's Mutiny",
+        "Radio War Nerd EP #250 [UNLOCKED] \u2014 Second Nagorno-Karabakh War",
+    ]
+
+    def setUp(self):
+        os.environ.pop("EXCLUDE_TITLE_PATTERN", None)
+        self.pattern = _compile_exclude(PatreonConfig.from_env().exclude_title_pattern)
+
+    def test_free_previews_are_dropped(self):
+        for title in self.DROPPED:
+            with self.subTest(title=title):
+                self.assertIsNotNone(self.pattern.search(title))
+
+    def test_full_episodes_survive(self):
+        for title in self.KEPT:
+            with self.subTest(title=title):
+                self.assertIsNone(self.pattern.search(title))
+
+    def test_client_filters_the_fetch(self):
+        included = {f"{i['type']}:{i['id']}": i for i in FIXTURE["included"]}
+        posts = json.loads(json.dumps(FIXTURE["data"]))
+        posts[0]["attributes"]["title"] = "FREE PREVIEW: Radio War Nerd #187"
+
+        class FakeClient(PatreonClient):
+            def iter_posts(self, campaign_id):
+                for post in posts:
+                    yield post, included
+
+        episodes = FakeClient(PatreonConfig.from_env()).fetch_unlocked_episodes("1")
+        self.assertEqual([e.post_id for e in episodes], ["98764000"])
+
+    def test_empty_pattern_disables_filtering(self):
+        os.environ["EXCLUDE_TITLE_PATTERN"] = ""
+        try:
+            config = PatreonConfig.from_env()
+        finally:
+            del os.environ["EXCLUDE_TITLE_PATTERN"]
+        self.assertEqual(config.exclude_title_pattern, "")
+        self.assertIsNone(_compile_exclude(config.exclude_title_pattern))
+
+    def test_custom_pattern_is_honoured(self):
+        os.environ["EXCLUDE_TITLE_PATTERN"] = r"\[REPOST\]"
+        try:
+            pattern = _compile_exclude(PatreonConfig.from_env().exclude_title_pattern)
+        finally:
+            del os.environ["EXCLUDE_TITLE_PATTERN"]
+        self.assertIsNotNone(pattern.search("Radio War Nerd #131* [REPOST]"))
+        self.assertIsNone(pattern.search("Radio War Nerd #366"))
+
+    def test_invalid_pattern_is_reported_clearly(self):
+        with self.assertRaises(PatreonError):
+            _compile_exclude("([unclosed")
 
 
 class TestMediaHelpers(unittest.TestCase):
